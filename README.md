@@ -45,6 +45,12 @@ Initial release;
 
 - new,delete,open `√`
 
+### 0.1.0
+
+- optimize open and delete project
+
+- change scaffolds to configurable
+
 ---
 
 **Enjoy!**

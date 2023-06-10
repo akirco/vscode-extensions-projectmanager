@@ -4,23 +4,22 @@ import * as path from "path";
 
 import {
   getProjectCategories,
-  getRootFolder,
-  createFolder,
+  getProjectRootDir,
+  makeDir,
   openProject,
-  getDirectories,
+  getSubDirs,
   deleteProject,
   executeCommandInTerminal,
+  getAvailableList,
+  getDefaultScaffolds,
 } from "../libs/projectManager";
-
-import { Scaffolds } from "./presetScaffold";
-
-const categories = getProjectCategories().split(",");
-const rootDir = getRootFolder();
 
 const commands: Command[] = [
   {
     command: "pm.newProject",
     action: async () => {
+      const categories = getProjectCategories().split(",").filter(Boolean);
+      const rootDir = getProjectRootDir();
       if (!rootDir) {
         vscode.window.showInformationMessage(
           `Please set root directory in settings.json`
@@ -29,91 +28,120 @@ const commands: Command[] = [
       }
 
       const selectedCategory = await vscode.window.showQuickPick(categories, {
-        title: "choose the project category",
+        title: "Select Category",
       });
+
       const projectName = await vscode.window.showInputBox({
-        title: "input the project name",
+        title: "Enter the project name",
       });
+
       if (selectedCategory && projectName) {
         const projectPath = path.join(rootDir, selectedCategory, projectName);
 
-        const isExists = await createFolder(projectPath);
+        const isExists = await makeDir(projectPath);
         if (isExists) {
           return;
         }
         const result = await vscode.window.showQuickPick([
-          "open folder",
-          "excute custom command",
-          "init with scafflod",
+          "Open project folder",
+          "Init with scafflod",
+          "Excute custom command",
         ]);
-        if (result === "open folder") {
+        if (result === "Open project folder") {
           openProject(projectPath);
-        } else if (result === "excute custom command") {
+        } else if (result === "Excute custom command") {
           const cmd = await vscode.window.showInputBox({
-            placeHolder: "Please input scaffold command...",
+            placeHolder:
+              "Please enter the custom command, example : git clone ...",
           });
-          await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
-        } else if (result === "init with scafflod") {
+          if (cmd) {
+            await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
+          }
+        } else if (result === "Init with scafflod") {
           const cmd = await vscode.window.showQuickPick(
-            Object.values(Scaffolds)
+            Object.values(getDefaultScaffolds())
           );
-          await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
+          if (cmd) {
+            await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
+          }
+        } else {
+          return;
         }
+      } else {
+        return;
       }
     },
   },
   {
     command: "pm.openProject",
     action: async () => {
+      const rootDir = getProjectRootDir();
       if (!rootDir) {
         vscode.window.showInformationMessage(
           `Please set root directory in settings.json`
         );
         return;
       }
-      const selectedCategory = await vscode.window.showQuickPick(categories, {
-        title: "Select the project category",
-      });
+      const categories = await getAvailableList();
 
-      const categoryFullPath = path.join(rootDir, selectedCategory!);
-      const lists = await getDirectories(categoryFullPath);
-
-      if (lists.length > 0) {
-        const selectProject = await vscode.window.showQuickPick(lists, {
-          title: "Open the project",
+      if (categories && categories.length > 0) {
+        const selectedCategory = await vscode.window.showQuickPick(categories, {
+          title: "Select the project category",
         });
-        openProject(path.join(categoryFullPath, selectProject!));
-      } else {
-        vscode.window.showWarningMessage("current category has not projects!");
+        if (selectedCategory) {
+          const categoryFullPath = path.join(rootDir, selectedCategory);
+          const lists = await getSubDirs(categoryFullPath);
+
+          if (lists && lists.length > 0) {
+            const selectProject = await vscode.window.showQuickPick(lists, {
+              title: "Open the project",
+            });
+            if (selectProject) {
+              openProject(path.join(categoryFullPath, selectProject));
+            }
+          } else {
+            vscode.window.showWarningMessage(
+              "current category has not projects!"
+            );
+          }
+        }
       }
     },
   },
   {
-    command: "pm.delectProject",
+    command: "pm.deleteProject",
     action: async () => {
+      const rootDir = getProjectRootDir();
       if (!rootDir) {
         vscode.window.showInformationMessage(
           `Please set root directory in settings.json`
         );
         return;
       }
+
+      const categories = await getAvailableList();
+
       const selectedCategory = await vscode.window.showQuickPick(categories, {
         title: "Select the project category",
       });
-      const subFolder = path.join(rootDir, selectedCategory!);
-      const lists = await getDirectories(subFolder);
-      if (lists.length > 0) {
-        const selectProject = await vscode.window.showQuickPick(lists, {
-          title: "Delete the project",
-          canPickMany: true,
-        });
-        selectProject?.map((item) => {
-          deleteProject(path.join(subFolder, item)).then(() => {
-            vscode.window.showInformationMessage("Delete completed!");
+      if (selectedCategory) {
+        const categoryFullPath = path.join(rootDir, selectedCategory);
+        const lists = await getSubDirs(categoryFullPath);
+        if (lists && lists.length > 0) {
+          const selectProject = await vscode.window.showQuickPick(lists, {
+            title: "Delete the project",
+            canPickMany: true,
           });
-        });
-      } else {
-        vscode.window.showWarningMessage("current category has not projects!");
+          if (selectProject) {
+            selectProject.map((item) => {
+              deleteProject(path.join(categoryFullPath, item));
+            });
+          }
+        } else {
+          vscode.window.showWarningMessage(
+            "current category has not projects!"
+          );
+        }
       }
     },
   },

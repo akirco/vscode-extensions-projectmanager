@@ -2,16 +2,17 @@
   "name": "pm",
   "displayName": "pm",
   "description": "",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "publisher": "akirco",
   "engines": {
     "vscode": "^1.78.0"
   },
   "categories": [
     "Other"
   ],
-  "icon": "logo-small.png",
+  "icon": "icon.png",
   "repository": {
-    "url": ""
+    "url": "https://github.com/akirco/vscode-extensions-projectmanager.git"
   },
   "activationEvents": [
     "onStartupFinished"
@@ -30,7 +31,7 @@
         "category": "pm"
       },
       {
-        "command": "pm.delectProject",
+        "command": "pm.deleteProject",
         "title": "Delete Project",
         "category": "pm"
       }
@@ -47,12 +48,24 @@
           "ProjectManager.category": {
             "type": "string",
             "description": "The categories of the projects",
-            "default": "Vue,React,Node,Python,Rust,Go,PHP,Java,Lua,RemoteRepository,Temp"
+            "default": "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp"
           },
           "ProjectManager.loadPresetPlugins": {
             "type": "boolean",
             "description": "Whether to load plugins for different project types",
             "default": false
+          },
+          "ProjectManager.scaffolds": {
+            "type": "object",
+            "description": "Default scaffolds to create project",
+            "default": {
+              "vite": "npx create-vite template && mv .\\template\\* .\\",
+              "createElectronVite": "npx create-electron-vite template && mv .\\template\\* .\\",
+              "createReactApp": "npx create-react-app template && mv .\\template\\* .\\",
+              "createNextApp": "npx create-next-app@latest template && mv .\\template\\* .\\",
+              "createViteExtra": "npx create-vite-extra template && mv .\\template\\* .\\",
+              "cargoInit": "cargo init"
+            }
           }
         }
       }

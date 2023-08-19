@@ -1,9 +1,9 @@
-# pm README
+# PM README
 
 pm - project manager
 
 ```
-rootFolder
+RootFolder
   - vue
      - project 1
      - project 2
@@ -17,8 +17,8 @@ rootFolder
 - new project `√`
 - open project `√`
 - delete project `√`
+- quick opening project `√`
 - multi project in a workspace `×`
-- autoNamed project `×`
 - recently used `×`
 - remove dependencies `×`
 
@@ -33,9 +33,8 @@ rootFolder
 
 ## Known Issues
 
-1. loadPresetPlugin is not completed.
-
-2. the empty category is no need to show.(next version)
+1. [excute command in terminal]
+   there are problems with different shell,i use the `pwsh`, it can use the `&&` excute command.
 
 ## Release Notes
 
@@ -50,6 +49,12 @@ Initial release;
 - optimize open and delete project
 
 - change scaffolds to configurable
+
+### 0.1.1
+
+- new feature: quick opening project
+
+- fix : it is not work that excute command in terminal when it is used
 
 ---
 

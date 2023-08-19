@@ -1,41 +1,41 @@
-import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export function getProjectRootDir() {
   return vscode.workspace
-    .getConfiguration("ProjectManager")
-    .get<string>("root");
+    .getConfiguration('ProjectManager')
+    .get<string>('root');
 }
 
 export function getProjectCategories() {
   let categories = vscode.workspace
-    .getConfiguration("ProjectManager")
-    .get<string>("category");
+    .getConfiguration('ProjectManager')
+    .get<string>('category');
   if (categories && categories.length > 0) {
     return categories;
   } else {
-    return "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp";
+    return 'CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp';
   }
 }
 
 export function getDefaultScaffolds() {
   let scaffolds = vscode.workspace
-    .getConfiguration("ProjectManager")
-    .get<Object>("scaffolds");
+    .getConfiguration('ProjectManager')
+    .get<Object>('scaffolds');
   if (scaffolds) {
     return scaffolds;
   } else {
     return {
-      vite: "npx create-vite template && mv .\\template\\* .\\",
+      vite: 'npx create-vite template && mv .\\template\\* .\\',
       createElectronVite:
-        "npx create-electron-vite template && mv .\\template\\* .\\",
-      createReactApp: "npx create-react-app template && mv .\\template\\* .\\",
+        'npx create-electron-vite template && mv .\\template\\* .\\',
+      createReactApp: 'npx create-react-app template && mv .\\template\\* .\\',
       createNextApp:
-        "npx create-next-app@latest template && mv .\\template\\* .\\",
+        'npx create-next-app@latest template && mv .\\template\\* .\\',
       createViteExtra:
-        "npx create-vite-extra template && mv .\\template\\* .\\",
-      cargoInit: "cargo init",
+        'npx create-vite-extra template && mv .\\template\\* .\\',
+      cargoInit: 'cargo new template &&  mv .\\template\\* .\\',
     };
   }
 }
@@ -66,25 +66,51 @@ export async function getAvailableList() {
     }
   } else {
     vscode.window.showInformationMessage(
-      "Please set root directory in settings.json"
+      'Please set root directory in settings.json'
     );
   }
   return availableList;
 }
 
+export async function getAvailableProjects() {
+  let availableProjects: string[] = [];
+  const rootDir = getProjectRootDir();
+  if (rootDir) {
+    const categories = await getAvailableList();
+
+    if (categories && categories.length > 0) {
+      for (const category of categories) {
+        const categoryFullPath = path.join(rootDir, category);
+        const projectDirs = await getSubDirs(categoryFullPath);
+        if (projectDirs && projectDirs.length > 0) {
+          const projectFullPath = projectDirs.map((projects) => {
+            return path.join(categoryFullPath, projects);
+          });
+          availableProjects.push(...projectFullPath);
+        }
+      }
+    }
+  } else {
+    vscode.window.showInformationMessage(
+      'Please set root directory in settings.json'
+    );
+  }
+  return availableProjects;
+}
+
 export async function openProject(path: string) {
   const uri = vscode.Uri.file(path);
   const result = await vscode.window.showInformationMessage(
-    "Which window you want to open this project?",
+    'Which window you want to open this project?',
     { modal: true },
-    "current",
-    "new"
+    'current',
+    'new'
   );
 
-  if (result === "new") {
-    vscode.commands.executeCommand("vscode.openFolder", uri, true);
-  } else if (result === "current") {
-    vscode.commands.executeCommand("vscode.openFolder", uri, false);
+  if (result === 'new') {
+    vscode.commands.executeCommand('vscode.openFolder', uri, true);
+  } else if (result === 'current') {
+    vscode.commands.executeCommand('vscode.openFolder', uri, false);
   }
 }
 
@@ -121,7 +147,7 @@ export async function deleteFile(uri: vscode.Uri) {
   );
   if (document) {
     await vscode.window.showTextDocument(document);
-    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+    await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   }
   await vscode.window.withProgress(
     {
@@ -155,9 +181,9 @@ export async function deleteProject(path: string | string[]) {
     `workbench.files.action.refreshFilesExplorer`
   );
   await vscode.commands.executeCommand(
-    "workbench.files.action.closeAllEditors"
+    'workbench.files.action.closeAllEditors'
   );
-  await vscode.window.showInformationMessage("Delete Completed!");
+  await vscode.window.showInformationMessage('Delete Completed!');
 }
 
 export async function executeCommandInTerminal(command: string) {
@@ -166,15 +192,21 @@ export async function executeCommandInTerminal(command: string) {
   if (terminals.length === 0) {
     terminal = vscode.window.createTerminal();
   } else {
-    const items = terminals.map((t) => ({
-      label: t.name,
-      terminal: t,
-    }));
-    const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: "choose a terminal to excute command...",
-    });
-    if (selected) {
-      terminal = selected.terminal;
+    const items = terminals
+      .filter((t) => t.processId === undefined)
+      .map((t) => ({
+        label: t.name,
+        terminal: t,
+      }));
+    if (items.length > 0) {
+      const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: 'choose a terminal to excute command...',
+      });
+      if (selected) {
+        terminal = selected.terminal;
+      }
+    } else {
+      terminal = vscode.window.createTerminal();
     }
   }
   if (terminal) {

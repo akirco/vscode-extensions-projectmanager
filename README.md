@@ -1,4 +1,4 @@
-# PM README
+# PM README - current only for windows user
 
 pm - project manager
 

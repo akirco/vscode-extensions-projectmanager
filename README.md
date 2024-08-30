@@ -26,15 +26,11 @@ RootFolder
 
 ```json
 {
-  "ProjectManager.root": "D:\\Projects",
+  "ProjectManager.root": "D:\\Projects",// linux /home/username/Projects
   "ProjectManager.category": "Vue,React,Node,Python,Rust,Go,PHP,Java,Lua,RemoteRepository,Temp"
 }
 ```
 
-## Known Issues
-
-1. [excute command in terminal]
-   there are problems with different shell,i use the `pwsh`, it can use the `&&` excute command.
 
 ## Release Notes
 
@@ -55,6 +51,10 @@ Initial release;
 - new feature: quick opening project
 
 - fix : it is not work that excute command in terminal when it is used
+
+### 01.3
+
+- linux supported
 
 ---
 

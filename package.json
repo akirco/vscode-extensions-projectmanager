@@ -2,7 +2,7 @@
   "name": "pm",
   "displayName": "pm",
   "description": "",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "publisher": "akirco",
   "engines": {
     "vscode": "^1.78.0"
@@ -37,7 +37,7 @@
       },
       {
         "command": "pm.quickOpenProject",
-        "title": "Quick opening Project",
+        "title": "Quick Opening Project",
         "category": "pm"
       }
     ],
@@ -53,21 +53,12 @@
           "ProjectManager.category": {
             "type": "string",
             "description": "The categories of the projects",
-            "default": "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp"
+            "default": ""
           },
           "ProjectManager.scaffolds": {
             "type": "object",
             "description": "Default scaffolds to create project",
-            "default": {
-              "createVite": "npx create-vite template && mv .\\template\\* .\\",
-              "createElectronVite": "npx create-electron-vite template && mv .\\template\\* .\\",
-              "createReactApp": "npx create-react-app template && mv .\\template\\* .\\",
-              "createNextApp": "npx create-next-app@latest template && mv .\\template\\* .\\",
-              "createViteExtra": "npx create-vite-extra template && mv .\\template\\* .\\",
-              "cargoInit": "cargo new template && mv .\\template\\* .\\",
-              "createCrx": "npx create-crx-app template && mv .\\template\\* .\\",
-              "createAstro": "npx create-astro template && mv .\\template\\* .\\"
-            }
+            "default": {}
           }
         }
       }

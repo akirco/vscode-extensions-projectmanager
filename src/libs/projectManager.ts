@@ -1,42 +1,77 @@
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
 
-export function getProjectRootDir() {
-  return vscode.workspace
-    .getConfiguration('ProjectManager')
-    .get<string>('root');
+interface Scaffolds {
+  [key: string]: string;
 }
 
-export function getProjectCategories() {
-  let categories = vscode.workspace
-    .getConfiguration('ProjectManager')
-    .get<string>('category');
-  if (categories && categories.length > 0) {
-    return categories;
+const defaultScaffolds = {
+  createVite: "npx create-vite template && mv ./template/* .",
+  createElectronVite: "npx create-electron-vite template && mv ./template/* .",
+  createReactApp: "npx create-react-app template && mv ./template/* .",
+  createNextApp: "npx create-next-app@latest template && mv ./template/* .",
+  createViteExtra: "npx create-vite-extra template && mv ./template/* .",
+  cargoInit: "cargo new template && mv ./template/* .",
+  createCrx: "npx create-crx-app template && mv ./template/* .",
+  createAstro: "npx create-astro template && mv ./template/* .",
+};
+
+export function scaffoldsProcesser(scaffolds: Scaffolds) {
+  const plateform = process.platform;
+  if (plateform === "win32") {
+    return Object.fromEntries(
+      Object.entries(scaffolds).map(([key, value]) => [
+        key,
+        value.replace(/\//g, "\\"),
+      ])
+    );
   } else {
-    return 'CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp';
+    return scaffolds;
   }
 }
 
 export function getDefaultScaffolds() {
   let scaffolds = vscode.workspace
-    .getConfiguration('ProjectManager')
-    .get<Object>('scaffolds');
-  if (scaffolds) {
-    return scaffolds;
+    .getConfiguration("ProjectManager")
+    .get<Scaffolds>("scaffolds");
+  if (!scaffolds || Object.keys(scaffolds).length === 0) {
+    return scaffoldsProcesser(defaultScaffolds);
   } else {
-    return {
-      vite: 'npx create-vite template && mv .\\template\\* .\\',
-      createElectronVite:
-        'npx create-electron-vite template && mv .\\template\\* .\\',
-      createReactApp: 'npx create-react-app template && mv .\\template\\* .\\',
-      createNextApp:
-        'npx create-next-app@latest template && mv .\\template\\* .\\',
-      createViteExtra:
-        'npx create-vite-extra template && mv .\\template\\* .\\',
-      cargoInit: 'cargo new template &&  mv .\\template\\* .\\',
-    };
+    return scaffoldsProcesser(scaffolds);
+  }
+}
+
+export function getProjectRootDir() {
+  const rootDir = vscode.workspace
+    .getConfiguration("ProjectManager")
+    .get<string>("root");
+  if (rootDir) {
+    if (!fs.existsSync(rootDir)) {
+      makeDir(rootDir);
+    }
+  }
+  return rootDir;
+}
+
+export async function getProjectCategories() {
+  const rootDir = getProjectRootDir();
+  if (rootDir) {
+    const categories = await getSubDirs(rootDir);
+    if (categories && categories?.length > 0) {
+      return categories.join(",");
+    } else {
+      let categories = vscode.workspace
+        .getConfiguration("ProjectManager")
+        .get<string>("category");
+      if (categories && categories.length > 0) {
+        return categories;
+      } else {
+        return "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp";
+      }
+    }
+  } else {
+    return "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp";
   }
 }
 
@@ -66,7 +101,7 @@ export async function getAvailableList() {
     }
   } else {
     vscode.window.showInformationMessage(
-      'Please set root directory in settings.json'
+      "Please set root directory in settings.json"
     );
   }
   return availableList;
@@ -92,7 +127,7 @@ export async function getAvailableProjects() {
     }
   } else {
     vscode.window.showInformationMessage(
-      'Please set root directory in settings.json'
+      "Please set root directory in settings.json"
     );
   }
   return availableProjects;
@@ -101,16 +136,16 @@ export async function getAvailableProjects() {
 export async function openProject(path: string) {
   const uri = vscode.Uri.file(path);
   const result = await vscode.window.showInformationMessage(
-    'Which window you want to open this project?',
+    "Which window you want to open this project?",
     { modal: true },
-    'current',
-    'new'
+    "current",
+    "new"
   );
 
-  if (result === 'new') {
-    vscode.commands.executeCommand('vscode.openFolder', uri, true);
-  } else if (result === 'current') {
-    vscode.commands.executeCommand('vscode.openFolder', uri, false);
+  if (result === "new") {
+    vscode.commands.executeCommand("vscode.openFolder", uri, true);
+  } else if (result === "current") {
+    vscode.commands.executeCommand("vscode.openFolder", uri, false);
   }
 }
 
@@ -147,7 +182,7 @@ export async function deleteFile(uri: vscode.Uri) {
   );
   if (document) {
     await vscode.window.showTextDocument(document);
-    await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   }
   await vscode.window.withProgress(
     {
@@ -181,9 +216,9 @@ export async function deleteProject(path: string | string[]) {
     `workbench.files.action.refreshFilesExplorer`
   );
   await vscode.commands.executeCommand(
-    'workbench.files.action.closeAllEditors'
+    "workbench.files.action.closeAllEditors"
   );
-  await vscode.window.showInformationMessage('Delete Completed!');
+  await vscode.window.showInformationMessage("Delete Completed!");
 }
 
 export async function executeCommandInTerminal(command: string) {
@@ -200,7 +235,7 @@ export async function executeCommandInTerminal(command: string) {
       }));
     if (items.length > 0) {
       const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: 'choose a terminal to excute command...',
+        placeHolder: "choose a terminal to excute command...",
       });
       if (selected) {
         terminal = selected.terminal;

@@ -1,42 +1,43 @@
-import type { Command } from '@/typings/command';
-import * as vscode from 'vscode';
-import * as path from 'path';
+import type { Command } from "@/typings/command";
+import * as path from "path";
+import * as vscode from "vscode";
 
 import {
-  getProjectCategories,
-  getProjectRootDir,
-  makeDir,
-  openProject,
-  getSubDirs,
   deleteProject,
   executeCommandInTerminal,
   getAvailableList,
-  getDefaultScaffolds,
   getAvailableProjects,
-} from '../libs/projectManager';
+  getDefaultScaffolds,
+  getProjectCategories,
+  getProjectRootDir,
+  getSubDirs,
+  makeDir,
+  openProject,
+} from "../libs/projectManager";
 
 const commands: Command[] = [
   {
-    command: 'pm.newProject',
+    command: "pm.newProject",
     action: async () => {
       let selectedCategory: string | undefined;
       let projectName: string | undefined;
-      const categories = getProjectCategories().split(',').filter(Boolean);
+      const category = await getProjectCategories();
+      const categories = category.split(",").filter(Boolean);
       const rootDir = getProjectRootDir();
       if (!rootDir) {
         vscode.window.showInformationMessage(
-          `Please set root directory in settings.json`
+          `Please set root directory in settings.json, key of "ProjectManager.root"`
         );
         return;
       }
       selectedCategory = await vscode.window.showQuickPick(categories, {
-        title: 'Select Project Category',
-        placeHolder: 'type to search category...',
+        title: "Select Project Category",
+        placeHolder: "type to search category...",
       });
       if (selectedCategory) {
         projectName = await vscode.window.showInputBox({
-          title: 'Enter the project name',
-          placeHolder: 'notice that special names may not work...',
+          title: "Enter the project name",
+          placeHolder: "notice that special names may not work...",
         });
       }
       if (selectedCategory && projectName) {
@@ -46,33 +47,34 @@ const commands: Command[] = [
           return;
         }
         const result = await vscode.window.showQuickPick([
-          'Open project folder',
-          'Clone remote repository',
-          'Init with scafflod',
-          'Excute custom command',
+          "Open project folder",
+          "Clone remote repository",
+          "Init with scafflod",
+          "Excute custom command",
         ]);
-        if (result === 'Open project folder') {
+        if (result === "Open project folder") {
           openProject(projectPath);
-        } else if (result === 'Excute custom command') {
+        } else if (result === "Excute custom command") {
           const cmd = await vscode.window.showInputBox({
-            title: 'Excute custom command',
-            placeHolder: 'enter the custom command, example : git clone ...',
+            title: "Excute custom command",
+            placeHolder: "enter the custom command, example : git clone ...",
           });
           if (cmd) {
             await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
           }
-        } else if (result === 'Init with scafflod') {
+        } else if (result === "Init with scafflod") {
+          const scaffolds = getDefaultScaffolds();
           const cmd = await vscode.window.showQuickPick(
-            Object.values(getDefaultScaffolds())
+            Object.values(scaffolds)
           );
           if (cmd) {
             await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
           }
-        } else if (result === 'Clone remote repository') {
+        } else if (result === "Clone remote repository") {
           const repository = await vscode.window.showInputBox({
-            title: 'Git clone remote repository',
+            title: "Git clone remote repository",
             placeHolder:
-              'enter the remote repository url,example: https://github.com/aa/bb.git...',
+              "enter the remote repository url,example: https://github.com/aa/bb.git...",
           });
           if (repository) {
             await executeCommandInTerminal(
@@ -86,7 +88,7 @@ const commands: Command[] = [
     },
   },
   {
-    command: 'pm.openProject',
+    command: "pm.openProject",
     action: async () => {
       const rootDir = getProjectRootDir();
       if (!rootDir) {
@@ -99,8 +101,8 @@ const commands: Command[] = [
 
       if (categories && categories.length > 0) {
         const selectedCategory = await vscode.window.showQuickPick(categories, {
-          title: 'Select the project category',
-          placeHolder: 'type to search category...',
+          title: "Select the project category",
+          placeHolder: "type to search category...",
         });
         if (selectedCategory) {
           const categoryFullPath = path.join(rootDir, selectedCategory);
@@ -108,15 +110,15 @@ const commands: Command[] = [
 
           if (lists && lists.length > 0) {
             const selectProject = await vscode.window.showQuickPick(lists, {
-              title: 'Open the project',
-              placeHolder: 'type to search project...',
+              title: "Open the project",
+              placeHolder: "type to search project...",
             });
             if (selectProject) {
               openProject(path.join(categoryFullPath, selectProject));
             }
           } else {
             vscode.window.showWarningMessage(
-              'current category has not projects!'
+              "current category has not projects!"
             );
           }
         }
@@ -124,7 +126,7 @@ const commands: Command[] = [
     },
   },
   {
-    command: 'pm.quickOpenProject',
+    command: "pm.quickOpenProject",
     action: async () => {
       const rootDir = getProjectRootDir();
       if (!rootDir) {
@@ -135,8 +137,8 @@ const commands: Command[] = [
       }
       const projects = await getAvailableProjects();
       const selectedProject = await vscode.window.showQuickPick(projects, {
-        title: 'Quick opening project',
-        placeHolder: 'search your project...',
+        title: "Quick opening project",
+        placeHolder: "search your project...",
       });
       if (selectedProject) {
         openProject(selectedProject);
@@ -144,7 +146,7 @@ const commands: Command[] = [
     },
   },
   {
-    command: 'pm.deleteProject',
+    command: "pm.deleteProject",
     action: async () => {
       const rootDir = getProjectRootDir();
       if (!rootDir) {
@@ -157,15 +159,15 @@ const commands: Command[] = [
       const categories = await getAvailableList();
 
       const selectedCategory = await vscode.window.showQuickPick(categories, {
-        title: 'Select the project category',
-        placeHolder: 'type to search category...',
+        title: "Select the project category",
+        placeHolder: "type to search category...",
       });
       if (selectedCategory) {
         const categoryFullPath = path.join(rootDir, selectedCategory);
         const lists = await getSubDirs(categoryFullPath);
         if (lists && lists.length > 0) {
           const selectProject = await vscode.window.showQuickPick(lists, {
-            title: 'Delete the project',
+            title: "Delete the project",
             canPickMany: true,
           });
           if (selectProject) {
@@ -175,7 +177,7 @@ const commands: Command[] = [
           }
         } else {
           vscode.window.showWarningMessage(
-            'current category has not projects!'
+            "current category has not projects!"
           );
         }
       }

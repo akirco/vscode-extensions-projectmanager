@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import commands from "./libs/commands";
 import excuteActiveEvent from "./libs/activeEvent";
+import commands from "./libs/commands";
 
 export function activate(context: vscode.ExtensionContext) {
   excuteActiveEvent(context);

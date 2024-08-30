@@ -1,7 +1,7 @@
 {
   "name": "pm",
   "displayName": "pm",
-  "description": "",
+  "description": "A simple way to manage local project files.",
   "version": "0.1.4",
   "publisher": "akirco",
   "engines": {

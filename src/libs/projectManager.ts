@@ -6,7 +6,7 @@ interface Scaffolds {
   [key: string]: string;
 }
 
-const defaultScaffolds = {
+const defaultScaffolds: Scaffolds = {
   createVite: "npx create-vite template && mv ./template/* .",
   createElectronVite: "npx create-electron-vite template && mv ./template/* .",
   createReactApp: "npx create-react-app template && mv ./template/* .",
@@ -17,166 +17,133 @@ const defaultScaffolds = {
   createAstro: "npx create-astro template && mv ./template/* .",
 };
 
-export function scaffoldsProcesser(scaffolds: Scaffolds) {
-  const plateform = process.platform;
-  if (plateform === "win32") {
-    return Object.fromEntries(
-      Object.entries(scaffolds).map(([key, value]) => [
-        key,
-        value.replace(/\//g, "\\"),
-      ])
-    );
-  } else {
-    return scaffolds;
-  }
+function adjustPathForPlatform(scaffolds: Scaffolds): Scaffolds {
+  const isWindows = process.platform === "win32";
+  return Object.fromEntries(
+    Object.entries(scaffolds).map(([key, value]) => [
+      key,
+      isWindows ? value.replace(/\//g, "\\") : value,
+    ])
+  );
 }
 
-export function getDefaultScaffolds() {
-  let scaffolds = vscode.workspace
+export function getDefaultScaffolds(): Scaffolds {
+  const scaffolds = vscode.workspace
     .getConfiguration("ProjectManager")
     .get<Scaffolds>("scaffolds");
   if (!scaffolds || Object.keys(scaffolds).length === 0) {
-    return scaffoldsProcesser(defaultScaffolds);
-  } else {
-    return scaffoldsProcesser(scaffolds);
+    return adjustPathForPlatform(defaultScaffolds);
   }
+
+  return adjustPathForPlatform(scaffolds);
 }
 
-export function getProjectRootDir() {
+export function getProjectRootDir(): string | undefined {
   const rootDir = vscode.workspace
     .getConfiguration("ProjectManager")
     .get<string>("root");
-  if (rootDir) {
-    if (!fs.existsSync(rootDir)) {
-      makeDir(rootDir);
-    }
+  if (rootDir && !fs.existsSync(rootDir)) {
+    makeDir(rootDir);
   }
   return rootDir;
 }
 
-export async function getProjectCategories() {
+export async function getProjectCategories(): Promise<string> {
   const rootDir = getProjectRootDir();
   if (rootDir) {
     const categories = await getSubDirs(rootDir);
-    if (categories && categories?.length > 0) {
+    if (categories?.length) {
       return categories.join(",");
-    } else {
-      let categories = vscode.workspace
-        .getConfiguration("ProjectManager")
-        .get<string>("category");
-      if (categories && categories.length > 0) {
-        return categories;
-      } else {
-        return "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp";
-      }
     }
-  } else {
-    return "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp";
   }
+  return (
+    vscode.workspace
+      .getConfiguration("ProjectManager")
+      .get<string>("category") ||
+    "CodeExtensions,Vue,React,Node,Python,Rust,Go,Temp"
+  );
 }
 
-export function isDirectory(path: string) {
-  try {
-    const stat = fs.statSync(path);
-    return stat.isDirectory();
-  } catch (e) {
-    return false;
+export async function getSubDirs(dirPath: string): Promise<string[]> {
+  if (!fs.existsSync(dirPath)) {
+    return [];
   }
+  const uri = vscode.Uri.file(dirPath);
+  const entries = await vscode.workspace.fs.readDirectory(uri);
+  return entries
+    .filter(([_, type]) => type === vscode.FileType.Directory)
+    .map(([name]) => name);
 }
 
-export async function getAvailableList() {
+export async function getAvailableList(): Promise<string[]> {
   const rootDir = getProjectRootDir();
-  let availableList: string[] = [];
-  if (rootDir) {
-    const categoryDirs = await getSubDirs(rootDir);
-
-    if (categoryDirs && categoryDirs.length > 0) {
-      for (const categoryDir of categoryDirs) {
-        const categoryFullPath = path.join(rootDir, categoryDir);
-        const projectDirs = await getSubDirs(categoryFullPath);
-        if (projectDirs && projectDirs.length > 0) {
-          availableList.push(categoryDir);
-        }
-      }
-    }
-  } else {
+  if (!rootDir) {
     vscode.window.showInformationMessage(
       "Please set root directory in settings.json"
     );
+    return [];
   }
+
+  const categories = await getSubDirs(rootDir);
+  const availableList: string[] = [];
+
+  for (const category of categories) {
+    const categoryPath = path.join(rootDir, category);
+    const projectDirs = await getSubDirs(categoryPath);
+
+    if (projectDirs.length > 0) {
+      availableList.push(category);
+    }
+  }
+
   return availableList;
 }
 
-export async function getAvailableProjects() {
-  let availableProjects: string[] = [];
+export async function getAvailableProjects(): Promise<string[]> {
   const rootDir = getProjectRootDir();
-  if (rootDir) {
-    const categories = await getAvailableList();
-
-    if (categories && categories.length > 0) {
-      for (const category of categories) {
-        const categoryFullPath = path.join(rootDir, category);
-        const projectDirs = await getSubDirs(categoryFullPath);
-        if (projectDirs && projectDirs.length > 0) {
-          const projectFullPath = projectDirs.map((projects) => {
-            return path.join(categoryFullPath, projects);
-          });
-          availableProjects.push(...projectFullPath);
-        }
-      }
-    }
-  } else {
+  if (!rootDir) {
     vscode.window.showInformationMessage(
       "Please set root directory in settings.json"
     );
+    return [];
   }
-  return availableProjects;
+
+  const categories = await getAvailableList();
+  const projects: string[] = [];
+  for (const category of categories) {
+    const categoryPath = path.join(rootDir, category);
+    const projectDirs = await getSubDirs(categoryPath);
+    projects.push(
+      ...projectDirs.map((project) => path.join(categoryPath, project))
+    );
+  }
+  return projects;
 }
 
-export async function openProject(path: string) {
-  const uri = vscode.Uri.file(path);
+export async function openProject(projectPath: string): Promise<void> {
+  const uri = vscode.Uri.file(projectPath);
   const result = await vscode.window.showInformationMessage(
     "Which window you want to open this project?",
     { modal: true },
     "current",
     "new"
   );
-
-  if (result === "new") {
-    vscode.commands.executeCommand("vscode.openFolder", uri, true);
-  } else if (result === "current") {
-    vscode.commands.executeCommand("vscode.openFolder", uri, false);
+  if (result) {
+    vscode.commands.executeCommand("vscode.openFolder", uri, result === "new");
   }
 }
 
-export async function makeDir(path: string) {
-  if (fs.existsSync(path)) {
-    vscode.window.showInformationMessage(`The Project Name is exists.`);
+export async function makeDir(dirPath: string): Promise<boolean> {
+  if (fs.existsSync(dirPath)) {
+    vscode.window.showInformationMessage(`The Project Name already exists.`);
     return true;
-  } else {
-    const uri = vscode.Uri.file(path);
-    vscode.workspace.fs.createDirectory(uri);
-    return false;
   }
+  const uri = vscode.Uri.file(dirPath);
+  await vscode.workspace.fs.createDirectory(uri);
+  return false;
 }
 
-export async function getSubDirs(path: string) {
-  if (!fs.existsSync(path)) {
-    return;
-  } else {
-    const uri = vscode.Uri.file(path);
-    const entries = await vscode.workspace.fs.readDirectory(uri);
-    const projectDirs = [];
-    for (const [name, type] of entries) {
-      if (type === vscode.FileType.Directory) {
-        projectDirs.push(name);
-      }
-    }
-    return projectDirs;
-  }
-}
-
-export async function deleteFile(uri: vscode.Uri) {
+export async function deleteFile(uri: vscode.Uri): Promise<void> {
   const document = vscode.workspace.textDocuments.find(
     (doc) => doc.uri.toString() === uri.toString()
   );
@@ -205,15 +172,13 @@ export async function deleteFile(uri: vscode.Uri) {
   );
 }
 
-export async function deleteProject(path: string | string[]) {
-  const uris = Array.isArray(path)
-    ? path.map((p) => vscode.Uri.file(p))
-    : [vscode.Uri.file(path)];
-
+export async function deleteProject(paths: string | string[]): Promise<void> {
+  const uris = Array.isArray(paths)
+    ? paths.map((p) => vscode.Uri.file(p))
+    : [vscode.Uri.file(paths)];
   await Promise.all(uris.map(deleteFile));
-
   await vscode.commands.executeCommand(
-    `workbench.files.action.refreshFilesExplorer`
+    "workbench.files.action.refreshFilesExplorer"
   );
   await vscode.commands.executeCommand(
     "workbench.files.action.closeAllEditors"
@@ -221,31 +186,11 @@ export async function deleteProject(path: string | string[]) {
   await vscode.window.showInformationMessage("Delete Completed!");
 }
 
-export async function executeCommandInTerminal(command: string) {
-  const terminals = vscode.window.terminals;
-  let terminal: vscode.Terminal | undefined;
-  if (terminals.length === 0) {
+export async function executeCommandInTerminal(command: string): Promise<void> {
+  let terminal = vscode.window.terminals.find((t) => t.processId === undefined);
+  if (!terminal) {
     terminal = vscode.window.createTerminal();
-  } else {
-    const items = terminals
-      .filter((t) => t.processId === undefined)
-      .map((t) => ({
-        label: t.name,
-        terminal: t,
-      }));
-    if (items.length > 0) {
-      const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: "choose a terminal to excute command...",
-      });
-      if (selected) {
-        terminal = selected.terminal;
-      }
-    } else {
-      terminal = vscode.window.createTerminal();
-    }
   }
-  if (terminal) {
-    terminal.show();
-    terminal.sendText(command);
-  }
+  terminal.show();
+  terminal.sendText(command);
 }

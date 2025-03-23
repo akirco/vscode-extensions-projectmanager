@@ -13,4 +13,9 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  // Clean up resources
+  for (const terminal of vscode.window.terminals) {
+    terminal.dispose();
+  }
+}

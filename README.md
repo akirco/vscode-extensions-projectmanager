@@ -1,6 +1,4 @@
-# PM README - current only for windows user
-
-pm - project manager
+# pm - Project manager
 
 ```
 RootFolder
@@ -10,6 +8,9 @@ RootFolder
   - react
      - project 1
      - project 2
+  - workspaces (default)
+     - 2025-03-11-xxx.code-workspace
+     - 2025-03-11-xyx.code-workspace
 ```
 
 ## Features
@@ -18,14 +19,16 @@ RootFolder
 - open project `√`
 - delete project `√`
 - quick opening project `√`
-- multi project in a workspace `×`
+- multi project in a workspace `√`
 - recently used `×`
-- remove dependencies `×`
+- remove dependencies , only support `node_modules,rust target dir` `√`
+- clone remote repository,not vsode default `git.clone` `√`
 
 ## Extension Settings
 
 ```json
 {
+  "window.dialogStyle": "custom", //Recommend settings
   "ProjectManager.root": "D:\\Projects",// linux /home/username/Projects
   "ProjectManager.category": "Vue,React,Node,Python,Rust,Go,PHP,Java,Lua,RemoteRepository,Temp"
 }
@@ -52,9 +55,16 @@ Initial release;
 
 - fix : it is not work that excute command in terminal when it is used
 
-### 01.3
+### 0.1.3
 
 - linux supported
+
+### 0.1.5
+ - change create project logic
+ - change excute command logic
+ - add clone repository command
+ - add open folder as a workspace
+ - add remove dependencies command, only support `node_modules,rust target dir` , current is not support config
 
 ---
 

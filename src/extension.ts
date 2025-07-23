@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
 import excuteActiveEvent from "./libs/activeEvent";
 import commands from "./libs/commands";
+import { initialize as initializeStateManager } from "./libs/stateManager";
 
 export function activate(context: vscode.ExtensionContext) {
   excuteActiveEvent(context);
+  initializeStateManager(context);
 
   // register command actions
   commands.map((item) => {

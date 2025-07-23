@@ -1,18 +1,16 @@
-import * as glob from 'fast-glob';
+import * as glob from "fast-glob";
 import * as fs from "fs";
-import getFolderSize from 'get-folder-size';
+import getFolderSize from "get-folder-size";
 import * as path from "path";
 import * as vscode from "vscode";
-
-interface ProjectConfig {
-  root: string;
-  category: string;
-  scaffolds: Scaffolds;
-}
-
-interface Scaffolds {
-  [key: string]: string;
-}
+import { ProjectConfig, Scaffolds } from "../types";
+import {
+  showErrorMessage,
+  showInformationMessage,
+  showOpenProjectWindowQuickPick,
+  showTrashDeleteConfirm,
+} from "../ui";
+import { addProjectToRecentlyOpened } from "./stateManager";
 
 let configCache: ProjectConfig | null = null;
 
@@ -42,6 +40,13 @@ const defaultScaffolds: Scaffolds = {
   cargoInit: "cargo init .",
 };
 
+const defaultCleanerPatterns = [
+  "**/node_modules",
+  "**/target",
+  "**/.venv",
+  "**/build",
+];
+
 function getConfiguration(): ProjectConfig {
   if (configCache) {
     return configCache;
@@ -52,6 +57,8 @@ function getConfiguration(): ProjectConfig {
     root: config.get<string>("root") || "",
     category: config.get<string>("category") || DEFAULT_CATEGORY,
     scaffolds: config.get<Scaffolds>("scaffolds") || defaultScaffolds,
+    cleanerPatterns:
+      config.get<string[]>("cleanerPatterns") || defaultCleanerPatterns,
   };
 
   return configCache;
@@ -104,7 +111,7 @@ export async function getSubDirs(
         .map(([name]) => name);
     } catch (error) {
       if (i === retries - 1) {
-        vscode.window.showErrorMessage(`Failed to read directory: ${dirPath}`);
+        showErrorMessage(`Failed to read directory: ${dirPath}`);
         throw error;
       }
       await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, i)));
@@ -116,7 +123,7 @@ export async function getSubDirs(
 export async function getAvailableList(): Promise<string[]> {
   const rootDir = getProjectRootDir();
   if (!rootDir) {
-    vscode.window.showInformationMessage(
+    showInformationMessage(
       "Please set projects root directory in settings.json"
     );
     return [];
@@ -140,7 +147,7 @@ export async function getAvailableList(): Promise<string[]> {
 export async function getAvailableProjects(): Promise<string[]> {
   const rootDir = getProjectRootDir();
   if (!rootDir) {
-    vscode.window.showInformationMessage(
+    showInformationMessage(
       "Please set projects root directory in settings.json"
     );
     return [];
@@ -168,14 +175,10 @@ export async function openProject(projectPath: string): Promise<void> {
       throw new Error("Not a directory");
     }
 
-    const result = await vscode.window.showInformationMessage(
-      "Which window you want to open this project?",
-      { modal: true },
-      "Current Window",
-      "New Window"
-    );
+    const result = await showOpenProjectWindowQuickPick();
 
     if (result) {
+      await addProjectToRecentlyOpened(projectPath);
       await vscode.commands.executeCommand(
         "vscode.openFolder",
         uri,
@@ -183,13 +186,13 @@ export async function openProject(projectPath: string): Promise<void> {
       );
     }
   } catch (error) {
-    vscode.window.showErrorMessage(`Failed to open project: ${projectPath}`);
+    showErrorMessage(`Failed to open project: ${projectPath}`);
   }
 }
 
 export async function makeDir(dirPath: string): Promise<boolean> {
   if (fs.existsSync(dirPath)) {
-    vscode.window.showInformationMessage(`The Project Name already exists.`);
+    showInformationMessage(`The Project Name already exists.`);
     return true;
   }
   const uri = vscode.Uri.file(dirPath);
@@ -205,25 +208,18 @@ export async function deleteFile(uri: vscode.Uri): Promise<void> {
     await vscode.window.showTextDocument(document);
     await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   }
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: `Deleting ${uri.fsPath}`,
-      cancellable: false,
-    },
-    async (process) => {
-      try {
-        await vscode.workspace.fs.delete(uri, {
-          recursive: true,
-          useTrash: true,
-        });
-        process.report({ message: `Deleted ${uri.fsPath}` });
-      } catch (error) {
-        process.report({ message: `Failed to delete ${uri.fsPath}` });
-        throw error;
-      }
+  await withProgress(`Deleting ${uri.fsPath}`, async (process) => {
+    try {
+      await vscode.workspace.fs.delete(uri, {
+        recursive: true,
+        useTrash: true,
+      });
+      process.report({ message: `Deleted ${uri.fsPath}` });
+    } catch (error) {
+      process.report({ message: `Failed to delete ${uri.fsPath}` });
+      throw error;
     }
-  );
+  });
 }
 
 export async function deleteProject(paths: string | string[]): Promise<void> {
@@ -231,24 +227,17 @@ export async function deleteProject(paths: string | string[]): Promise<void> {
     ? paths.map((p) => vscode.Uri.file(p))
     : [vscode.Uri.file(paths)];
 
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "Deleting projects",
-      cancellable: false,
-    },
-    async (progress) => {
-      const total = uris.length;
+  await withProgress("Deleting projects", async (progress) => {
+    const total = uris.length;
 
-      for (let i = 0; i < uris.length; i++) {
-        progress.report({
-          message: `${i + 1}/${total}: ${path.basename(uris[i].fsPath)}`,
-          increment: (1 / total) * 100,
-        });
-        await deleteFile(uris[i]);
-      }
+    for (let i = 0; i < uris.length; i++) {
+      progress.report({
+        message: `${i + 1}/${total}: ${path.basename(uris[i].fsPath)}`,
+        increment: (1 / total) * 100,
+      });
+      await deleteFile(uris[i]);
     }
-  );
+  });
 
   await vscode.commands.executeCommand(
     "workbench.files.action.refreshFilesExplorer"
@@ -256,7 +245,7 @@ export async function deleteProject(paths: string | string[]): Promise<void> {
   await vscode.commands.executeCommand(
     "workbench.files.action.closeAllEditors"
   );
-  await vscode.window.showInformationMessage("Delete Completed!");
+  showInformationMessage("Delete Completed!");
 }
 
 export async function executeCommandInTerminal(command: string): Promise<void> {
@@ -367,7 +356,7 @@ export async function withErrorHandling<T>(
   try {
     return await action();
   } catch (error) {
-    vscode.window.showErrorMessage(
+    showErrorMessage(
       `${errorMessage}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
@@ -379,7 +368,9 @@ export async function withErrorHandling<T>(
 // 通用进度提示
 export async function withProgress<T>(
   title: string,
-  action: (progress: vscode.Progress<{ message?: string }>) => Promise<T>
+  action: (
+    progress: vscode.Progress<{ message?: string; increment?: number }>
+  ) => Promise<T>
 ): Promise<T> {
   return vscode.window.withProgress(
     {
@@ -391,73 +382,28 @@ export async function withProgress<T>(
   );
 }
 
-// 添加工具函数
-export async function isValidNodeModules(projectPath: string): Promise<boolean> {
-  const packageJsonPath = path.join(projectPath, 'package.json');
-  return fs.existsSync(packageJsonPath);
-}
-
-export async function isValidRustTarget(targetPath: string): Promise<boolean> {
-  const rustcInfoPath = path.join(targetPath, '.rustc_info.json');
-  const cacheDirTagPath = path.join(targetPath, 'CACHEDIR.TAG');
-  return fs.existsSync(rustcInfoPath) || fs.existsSync(cacheDirTagPath);
-}
-
-export async function findDependencyDirs(projectPath: string): Promise<string[]> {
-  const results: string[] = [];
-
-  const packageJsons = await glob('**/package.json', {
-    cwd: projectPath,
-    absolute: true,
-    ignore: ['**/node_modules/**']
-  });
-
-  const targets = await glob('**/target', {
+export async function findDependencyDirs(
+  projectPath: string
+): Promise<string[]> {
+  const { cleanerPatterns } = getConfiguration();
+  const results = await glob(cleanerPatterns, {
     cwd: projectPath,
     absolute: true,
     onlyDirectories: true,
-    ignore: ['**/node_modules/**']
   });
-
-  for (const pkgPath of packageJsons) {
-    const nodeModulesPath = path.join(path.dirname(pkgPath), 'node_modules');
-
-    if (fs.existsSync(nodeModulesPath)) {
-      results.push(nodeModulesPath);
-    }
-  }
-
-  // 检查 target 目录
-  for (const targetPath of targets) {
-    if (await isValidRustTarget(targetPath)) {
-      results.push(targetPath);
-    }
-  }
   return results;
 }
 
-export async function hasAnyDependencies(projectPath: string): Promise<boolean> {
-  const entries = await glob(['**/package.json', '**/target'], {
+export async function hasAnyDependencies(
+  projectPath: string
+): Promise<boolean> {
+  const { cleanerPatterns } = getConfiguration();
+  const entries = await glob(cleanerPatterns, {
     cwd: projectPath,
-    ignore: ['**/node_modules/**'],
     onlyFiles: false,
-    absolute: true
+    absolute: true,
   });
-
-  for (const entry of entries) {
-    if (entry.endsWith('package.json')) {
-      const nodeModulesPath = path.join(path.dirname(entry), 'node_modules');
-      if (fs.existsSync(nodeModulesPath)) {
-        return true;
-      }
-    } else if (path.basename(entry) === 'target') {
-      if (await isValidRustTarget(entry)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return entries.length > 0;
 }
 
 export async function getDirectorySize(dirPath: string): Promise<number> {
@@ -469,3 +415,32 @@ export async function getDirectorySize(dirPath: string): Promise<number> {
     return 0;
   }
 }
+
+export async function deleteWithConfirmation(dir: string): Promise<void> {
+  try {
+    // 首先尝试移动到回收站
+    await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
+      recursive: true,
+      useTrash: true,
+    });
+  } catch (error) {
+    // 如果移动到回收站失败，询问用户是否直接删除
+    const confirmed = await showTrashDeleteConfirm(dir);
+
+    if (confirmed) {
+      await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
+        recursive: true,
+        useTrash: false,
+      });
+    } else {
+      throw new Error(`Cancelled deletion of ${dir}`);
+    }
+  }
+}
+
+// 监听配置变更
+vscode.workspace.onDidChangeConfiguration((e) => {
+  if (e.affectsConfiguration("ProjectManager")) {
+    configCache = null;
+  }
+});

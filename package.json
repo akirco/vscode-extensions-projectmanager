@@ -2,7 +2,7 @@
   "name": "pm",
   "displayName": "pm",
   "description": "A simple way to manage local project files.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "akirco",
   "engines": {
     "vscode": "^1.78.0"
@@ -84,6 +84,18 @@
             "type": "object",
             "description": "Default scaffolds to create project",
             "default": {}
+          },
+          "ProjectManager.cleanerPatterns": {
+            "type": "array",
+            "description": "Glob patterns for folders to be deleted by the 'Delete Project Dependencies' command.",
+            "default": [
+              "**/node_modules",
+              "**/target",
+              "**/.venv"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

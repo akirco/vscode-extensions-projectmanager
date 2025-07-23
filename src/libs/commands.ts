@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { Command } from "@/typings/command";
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { QuickPickItem } from "vscode";
 
 import {
   createWorkspace,
@@ -21,22 +18,34 @@ import {
   hasAnyDependencies,
   makeDir,
   openProject,
-  validateProjectName,
   withErrorHandling,
   withProgress,
+  deleteWithConfirmation,
 } from "../libs/projectManager";
+import { getRecentlyOpenedProjects } from "../libs/stateManager";
+import { Command, QuickPickItem } from "../types";
+import {
+  showCategoryQuickPick,
+  showCloneSuccessQuickPick,
+  showCustomCommandInput,
+  showDeleteProjectQuickPick,
+  showDepsCleanQuickPick,
+  showInformationMessage,
+  showNewProjectOptions,
+  showProjectNameInput,
+  showProjectQuickPick,
+  showRepoCloneInput,
+  showScaffoldQuickPick,
+  showWarningMessage,
+  showWorkspaceProjectQuickPick,
+  showWorkspaceQuickPick,
+} from "../ui";
 
 const MESSAGES = {
   NO_ROOT: "Please set root directory in settings.json",
   NO_PROJECTS: "Current category has no projects",
-  SELECT_CATEGORY: "Select Project Category",
-  ENTER_PROJECT_NAME: "Enter project name",
+  NO_RECENT_PROJECTS: "No recent projects to display.",
 } as const;
-
-const DEPENDENCY_FOLDERS = [
-  "node_modules",
-  "target",
-] as const;
 
 const formatSize = (bytes: number): string => {
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -49,33 +58,6 @@ const formatSize = (bytes: number): string => {
   return `${size.toFixed(2)} ${units[unitIndex]}`;
 };
 
-async function deleteWithConfirmation(dir: string): Promise<void> {
-  try {
-    // 首先尝试移动到回收站
-    await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
-      recursive: true,
-      useTrash: true
-    });
-  } catch (error) {
-    // 如果移动到回收站失败，询问用户是否直接删除
-    const answer = await vscode.window.showWarningMessage(
-      `Failed to move "${path.basename(dir)}" to recycle bin. Do you want to delete it permanently?`,
-      { modal: true },
-      "Yes",
-      "No"
-    );
-
-    if (answer === "Yes") {
-      await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
-        recursive: true,
-        useTrash: false
-      });
-    } else {
-      throw new Error(`Cancelled deletion of ${dir}`);
-    }
-  }
-}
-
 const commands: Command[] = [
   {
     command: "pm.newProject",
@@ -83,63 +65,47 @@ const commands: Command[] = [
       return withErrorHandling(async () => {
         const rootDir = getProjectRootDir();
         if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+          showInformationMessage(MESSAGES.NO_ROOT);
           return;
         }
 
-        let selectedCategory: string | undefined;
         const category = await getProjectCategories();
         const categories = category.split(",").filter(Boolean);
-        selectedCategory = await vscode.window.showQuickPick(categories, {
-          title: MESSAGES.SELECT_CATEGORY,
-          placeHolder: "type to search category...",
-        });
+        const selectedCategory = await showCategoryQuickPick(categories);
 
         if (selectedCategory) {
-          const projectName = await vscode.window.showInputBox({
-            title: MESSAGES.ENTER_PROJECT_NAME,
-            placeHolder: "notice that special names may not work...",
-            validateInput: validateProjectName(rootDir, selectedCategory)
-          });
+          const projectName = await showProjectNameInput(
+            rootDir,
+            selectedCategory
+          );
 
           if (projectName) {
-            const projectPath = path.join(rootDir, selectedCategory, projectName);
+            const projectPath = path.join(
+              rootDir,
+              selectedCategory,
+              projectName
+            );
             await makeDir(projectPath);
 
-            const result = await vscode.window.showQuickPick([
-              "Open project folder",
-              "Clone remote repository",
-              "Init with scafflod",
-              "Excute custom command",
-            ]);
+            const result = await showNewProjectOptions();
 
-            // ...existing code for handling result...
             if (result === "Open project folder") {
               openProject(projectPath);
             } else if (result === "Excute custom command") {
-              const cmd = await vscode.window.showInputBox({
-                title: "Excute custom command",
-                placeHolder: "enter the custom command, example : git clone ...",
-              });
+              const cmd = await showCustomCommandInput();
               if (cmd) {
                 await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
               }
               openProject(projectPath);
             } else if (result === "Init with scafflod") {
               const scaffolds = getDefaultScaffolds();
-              const cmd = await vscode.window.showQuickPick(
-                Object.values(scaffolds)
-              );
+              const cmd = await showScaffoldQuickPick(scaffolds);
               if (cmd) {
                 await executeCommandInTerminal(`cd ${projectPath} && ${cmd}`);
               }
               openProject(projectPath);
             } else if (result === "Clone remote repository") {
-              const repository = await vscode.window.showInputBox({
-                title: "Git clone remote repository",
-                placeHolder:
-                  "enter the remote repository url,example: https://github.com/aa/bb.git...",
-              });
+              const repository = await showRepoCloneInput();
               if (repository) {
                 await executeCommandInTerminal(
                   `cd ${projectPath} && git clone ${repository}`
@@ -158,33 +124,24 @@ const commands: Command[] = [
       return withErrorHandling(async () => {
         const rootDir = getProjectRootDir();
         if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+          showInformationMessage(MESSAGES.NO_ROOT);
           return;
         }
         const categories = await getAvailableList();
 
         if (categories && categories.length > 0) {
-          const selectedCategory = await vscode.window.showQuickPick(
-            categories,
-            {
-              title: "Select the project category",
-              placeHolder: "type to search category...",
-            }
-          );
+          const selectedCategory = await showCategoryQuickPick(categories);
           if (selectedCategory) {
             const categoryFullPath = path.join(rootDir, selectedCategory);
             const lists = await getSubDirs(categoryFullPath);
 
             if (lists && lists.length > 0) {
-              const selectProject = await vscode.window.showQuickPick(lists, {
-                title: "Open the project",
-                placeHolder: "type to search project...",
-              });
+              const selectProject = await showProjectQuickPick(lists.map(l => ({ label: l })));
               if (selectProject) {
-                openProject(path.join(categoryFullPath, selectProject));
+                openProject(path.join(categoryFullPath, selectProject.label));
               }
             } else {
-              vscode.window.showWarningMessage(MESSAGES.NO_PROJECTS);
+              showWarningMessage(MESSAGES.NO_PROJECTS);
             }
           }
         }
@@ -195,18 +152,32 @@ const commands: Command[] = [
     command: "pm.quickOpenProject",
     action: async () => {
       return withErrorHandling(async () => {
-        const rootDir = getProjectRootDir();
-        if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+        const recentProjects = getRecentlyOpenedProjects(5);
+        const allProjects = await getAvailableProjects();
+
+        const quickPickItems: vscode.QuickPickItem[] = [];
+
+        if (recentProjects.length > 0) {
+          quickPickItems.push({ label: "Recent Projects", kind: vscode.QuickPickItemKind.Separator });
+          quickPickItems.push(...recentProjects.map(p => ({ label: p })));
+        }
+
+        const otherProjects = allProjects.filter(p => !recentProjects.includes(p));
+
+        if (otherProjects.length > 0) {
+          quickPickItems.push({ label: "All Projects", kind: vscode.QuickPickItemKind.Separator });
+          quickPickItems.push(...otherProjects.map(p => ({ label: p })));
+        }
+
+        if (quickPickItems.length === 0) {
+          showInformationMessage(MESSAGES.NO_PROJECTS);
           return;
         }
-        const projects = await getAvailableProjects();
-        const selectedProject = await vscode.window.showQuickPick(projects, {
-          title: "Quick opening project",
-          placeHolder: "search your project...",
-        });
-        if (selectedProject) {
-          openProject(selectedProject);
+
+        const selected = await showProjectQuickPick(quickPickItems);
+
+        if (selected) {
+          openProject(selected.label);
         }
       }, "Failed to quick open project");
     },
@@ -217,31 +188,25 @@ const commands: Command[] = [
       return withErrorHandling(async () => {
         const rootDir = getProjectRootDir();
         if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+          showInformationMessage(MESSAGES.NO_ROOT);
           return;
         }
 
         const categories = await getAvailableList();
 
-        const selectedCategory = await vscode.window.showQuickPick(categories, {
-          title: "Select the project category",
-          placeHolder: "type to search category...",
-        });
+        const selectedCategory = await showCategoryQuickPick(categories);
         if (selectedCategory) {
           const categoryFullPath = path.join(rootDir, selectedCategory);
           const lists = await getSubDirs(categoryFullPath);
           if (lists && lists.length > 0) {
-            const selectProject = await vscode.window.showQuickPick(lists, {
-              title: "Delete the project",
-              canPickMany: true,
-            });
+            const selectProject = await showDeleteProjectQuickPick(lists);
             if (selectProject) {
               selectProject.map((item) => {
                 deleteProject(path.join(categoryFullPath, item));
               });
             }
           } else {
-            vscode.window.showWarningMessage(MESSAGES.NO_PROJECTS);
+            showWarningMessage(MESSAGES.NO_PROJECTS);
           }
         }
       }, "Failed to delete project");
@@ -253,18 +218,11 @@ const commands: Command[] = [
       return withErrorHandling(async () => {
         const rootDir = getProjectRootDir();
         if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+          showInformationMessage(MESSAGES.NO_ROOT);
           return;
         }
 
-        const repository = await vscode.window.showInputBox({
-          title: "Git clone remote repository",
-          placeHolder:
-            "Enter repository URL (e.g. https://github.com/user/repo.git)",
-          validateInput: (value) => {
-            return value.trim() ? null : "Repository URL is required";
-          },
-        });
+        const repository = await showRepoCloneInput();
 
         if (!repository) {
           return;
@@ -280,27 +238,17 @@ const commands: Command[] = [
         const category = await getProjectCategories();
         const categories = category.split(",").filter(Boolean);
 
-        const selectedCategory = await vscode.window.showQuickPick(categories, {
-          title: "Select Project Category",
-          placeHolder: "type to search category...",
-        });
+        const selectedCategory = await showCategoryQuickPick(categories);
 
         if (!selectedCategory) {
           return;
         }
 
-        let projectName = await vscode.window.showInputBox({
-          title: "Enter project name",
-          value: defaultName,
-          placeHolder: "Project name",
-          validateInput: (value) => {
-            if (!value.trim()) {
-              return "Project name is required";
-            }
-            const projectPath = path.join(rootDir, selectedCategory, value);
-            return fs.existsSync(projectPath) ? "Project already exists" : null;
-          },
-        });
+        let projectName = await showProjectNameInput(
+          rootDir,
+          selectedCategory,
+          defaultName
+        );
 
         if (!projectName) {
           return;
@@ -313,33 +261,27 @@ const commands: Command[] = [
         }
 
         try {
-          await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "Cloning Repository",
-            cancellable: false
-          }, async (progress) => {
+          await withProgress("Cloning Repository", async (progress) => {
             progress.report({ message: "Cloning..." });
             await executeCommandInTerminal(
               `cd ${projectPath} && git clone ${repository} .`
             );
           });
 
-          const openNow = await vscode.window.showInformationMessage(
-            "Repository cloned successfully! Open it now?",
-            "Yes",
-            "No"
-          );
+          const openNow = await showCloneSuccessQuickPick();
 
           if (openNow === "Yes") {
             await openProject(projectPath);
           }
         } catch (error) {
-          vscode.window.showErrorMessage(
-            `Failed to clone repository: ${error instanceof Error ? error.message : 'Unknown error'}`
+          showInformationMessage(
+            `Failed to clone repository: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`
           );
         }
       }, "Failed to clone repository");
-    }
+    },
   },
   {
     command: "pm.deleteDependencies",
@@ -347,7 +289,7 @@ const commands: Command[] = [
       return withErrorHandling(async () => {
         const rootDir = getProjectRootDir();
         if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+          showInformationMessage(MESSAGES.NO_ROOT);
           return;
         }
 
@@ -371,7 +313,9 @@ const commands: Command[] = [
               results.push({
                 label: project,
                 picked: hasDeps,
-                description: `${hasDeps ? "Has dependencies" : "No dependencies"} (${formatSize(totalSize)})`
+                description: `${
+                  hasDeps ? "Has dependencies" : "No dependencies"
+                } (${formatSize(totalSize)})`,
               });
             }
 
@@ -379,24 +323,18 @@ const commands: Command[] = [
           }
         );
 
-        const selectedProjects = await vscode.window.showQuickPick(projectsWithDeps, {
-          title: "Select projects to clean dependencies",
-          placeHolder: "Projects with dependencies are pre-selected",
-          canPickMany: true
-        });
+        const selectedProjects = await showDepsCleanQuickPick(projectsWithDeps);
 
         if (!selectedProjects?.length) {
           return;
         }
 
-        const projectPaths = selectedProjects.map(item => item.label);
-
         return withProgress("Cleaning Dependencies", async (progress) => {
           let deletedCount = 0;
-          const total = projectPaths.length;
+          const total = selectedProjects.length;
           let current = 0;
 
-          for (const project of projectPaths) {
+          for (const project of selectedProjects) {
             current++;
             progress.report({
               message: `Analyzing ${path.basename(project)} (${current}/${total})`,
@@ -409,7 +347,7 @@ const commands: Command[] = [
                 await deleteWithConfirmation(dir);
                 deletedCount++;
               } catch (error) {
-                if (error instanceof Error && error.message.includes('Cancelled')) {
+                if (error instanceof Error && error.message.includes("Cancelled")) {
                   console.log(error.message);
                   continue;
                 }
@@ -419,11 +357,11 @@ const commands: Command[] = [
           }
 
           if (deletedCount > 0) {
-            vscode.window.showInformationMessage(
-              `Cleaned ${deletedCount} dependency folders from ${projectPaths.length} projects`
+            showInformationMessage(
+              `Cleaned ${deletedCount} dependency folders from ${selectedProjects.length} projects`
             );
           } else {
-            vscode.window.showInformationMessage("No dependency folders found");
+            showInformationMessage("No dependency folders found");
           }
         });
       }, "Failed to clean dependencies");
@@ -435,16 +373,12 @@ const commands: Command[] = [
       return withErrorHandling(async () => {
         const rootDir = getProjectRootDir();
         if (!rootDir) {
-          vscode.window.showInformationMessage(MESSAGES.NO_ROOT);
+          showInformationMessage(MESSAGES.NO_ROOT);
           return;
         }
 
         const projects = await getAvailableProjects();
-        const selectedProjects = await vscode.window.showQuickPick(projects, {
-          title: "Select projects to add to workspace",
-          placeHolder: "search your projects...",
-          canPickMany: true,
-        });
+        const selectedProjects = await showWorkspaceProjectQuickPick(projects);
 
         if (!selectedProjects?.length) {
           return;
@@ -463,41 +397,35 @@ const commands: Command[] = [
         const workspaces = await getAvailableWorkspaces();
 
         if (!workspaces.length) {
-          vscode.window.showInformationMessage("No workspaces found");
+          showInformationMessage("No workspaces found");
           return;
         }
 
-        const selectedWorkspace = await vscode.window.showQuickPick(
-          workspaces.map((w) => ({
-            label: path.basename(w),
-            fullPath: w,
-          })),
-          {
-            title: "Select workspace to open",
-            placeHolder: "search workspaces...",
-          }
-        );
+        const selectedWorkspace = await showWorkspaceQuickPick(workspaces);
 
         if (selectedWorkspace) {
-          const uri = vscode.Uri.file(selectedWorkspace.fullPath);
+          const uri = vscode.Uri.file(selectedWorkspace);
           await vscode.commands.executeCommand("vscode.openFolder", uri);
         }
       }, "Failed to open workspace");
     },
-  }, {
+  },
+  {
     command: "pm.closeWorkspaceOrFolder",
     action: async () => {
       return withErrorHandling(async () => {
         const currentWorkspace = vscode.workspace.workspaceFolders;
         if (currentWorkspace && currentWorkspace.length > 0) {
-          await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+          await vscode.commands.executeCommand(
+            "workbench.action.closeAllEditors"
+          );
           await vscode.commands.executeCommand("workbench.action.closeFolder");
         } else {
-          vscode.window.showInformationMessage("No workspace or folder is currently open");
+          showInformationMessage("No workspace or folder is currently open");
         }
       }, "Failed to close workspace or folder");
-    }
-  }
+    },
+  },
 ];
 
 export default commands;

@@ -1,79 +1,109 @@
-# pm - Project manager
+[简体中文](README.zh-CN.md)
 
-```
-RootFolder
-  - vue
-     - project 1
-     - project 2
-  - react
-     - project 1
-     - project 2
-  - workspaces (default)
-     - 2025-03-11-xxx.code-workspace
-     - 2025-03-11-xyx.code-workspace
-```
+# Project Manager (pm)
+
+A simple and efficient way to manage your local project files directly within VS Code.
 
 ## Features
 
-- new project `√`
-- open project `√`
-- delete project `√`
-- quick opening project `√`
-- multi project in a workspace `√`
-- recently used `×`
-- remove dependencies , only support `node_modules,rust target dir` `√`
-- clone remote repository,not vsode default `git.clone` `√`
+- **Project Management**:
+  - Create new projects with customizable scaffolds.
+  - Open existing projects in the current or a new window.
+  - Delete projects (moves to trash by default).
+  - Quickly open projects from a list of all available projects or recently opened ones.
+- **Workspace Management**:
+  - Create and open multi-project workspaces.
+  - Quickly open existing workspaces.
+  - Close the current workspace or folder.
+- **Dependency Management**:
+  - Clean project dependencies based on configurable glob patterns (e.g., `node_modules`, `target`).
+- **Git Integration**:
+  - Clone remote repositories directly into your project structure.
 
-## Extension Settings
+## Getting Started
+
+1.  **Install the Extension**: Search for "pm" in the VS Code Extensions view and click **Install**.
+2.  **Configure the Root Directory**: Open your `settings.json` file and set the `ProjectManager.root` property to the absolute path of your projects' root folder.
+
+    ```json
+    {
+      "ProjectManager.root": "/path/to/your/projects"
+    }
+    ```
+
+## Usage
+
+Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and type `pm` to see all available commands.
+
+### Available Commands
+
+- `pm: New Project`: Creates a new project in a selected category.
+- `pm: Open Project`: Opens an existing project.
+- `pm: Delete Project`: Deletes one or more projects.
+- `pm: Quick Opening Project`: Quickly opens a project from a list of recent and all projects.
+- `pm: Clone Remote Repository`: Clones a Git repository into a selected category.
+- `pm: Delete Project Dependencies`: Deletes dependency folders (e.g., `node_modules`) from selected projects.
+- `pm: Create And Open Workspace`: Creates a new workspace with selected projects.
+- `pm: Quick Open Workspace`: Quickly opens an existing workspace.
+- `pm: Close Workspace Or Folder`: Closes the currently open workspace or folder.
+
+## Configuration
+
+You can customize the extension's behavior by modifying the following settings in your `settings.json` file:
+
+- **`ProjectManager.root`** (required):
+  - The absolute path to the root folder where your projects are stored.
+  - Example: `"/home/user/projects"` or `"D:\\Projects"`
+
+- **`ProjectManager.category`**:
+  - An array of strings representing your project categories. These categories will be used to organize your projects in subdirectories.
+  - Default: `[]`
+  - Example: `["Vue", "React", "Node", "Python"]`
+
+- **`ProjectManager.scaffolds`**:
+  - An object where keys are scaffold names and values are the commands to execute for creating a new project.
+  - Default: `{}`
+  - Example:
+    ```json
+    {
+      "create-vite": "npx create-vite .",
+      "create-next-app": "npx create-next-app@latest ."
+    }
+    ```
+
+- **`ProjectManager.cleanerPatterns`**:
+  - An array of glob patterns for folders to be deleted by the 'Delete Project Dependencies' command.
+  - Default: `["**/node_modules", "**/target", "**/.venv"]`
+
+## Example Configuration
 
 ```json
 {
-  "window.dialogStyle": "custom", //Recommend settings
-  "ProjectManager.root": "D:\\Projects", // linux /home/username/Projects
-  "ProjectManager.category": "Vue,React,Node,Python,Rust,Go",
-  "ProjectManager.cleanerPatterns": ["**/node_modules", "**/target", "**/.venv"]
+  "window.dialogStyle": "custom", // Recommended for a better user experience
+  "ProjectManager.root": "D:\\Projects",
+  "ProjectManager.category": [
+    "Vue",
+    "React",
+    "Node",
+    "Python",
+    "Rust",
+    "Go"
+  ],
+  "ProjectManager.scaffolds": {
+    "Vite": "npx create-vite .",
+    "Next.js": "npx create-next-app@latest ."
+  },
+  "ProjectManager.cleanerPatterns": [
+    "**/node_modules",
+    "**/target",
+    "**/.venv",
+    "**/build"
+  ]
 }
 ```
 
-## Release Notes
+## Contributing
 
-### 0.0.1
-
-Initial release;
-
-- new,delete,open `√`
-
-### 0.1.0
-
-- optimize open and delete project
-
-- change scaffolds to configurable
-
-### 0.1.1
-
-- new feature: quick opening project
-
-- fix : it is not work that excute command in terminal when it is used
-
-### 0.1.3
-
-- linux supported
-
-### 0.1.5
-
-- change create project logic
-- change excute command logic
-- add clone repository command
-- add open folder as a workspace
-- add remove dependencies command, only support `node_modules,rust target dir` , current is not support config
-
-### 0.1.6
-
-- refactor struct
-- add config of removed
-- add currently opened project lists
-- update dependencies
-
----
+Contributions are welcome! Please feel free to open an issue or submit a pull request on [GitHub](https://github.com/akirco/vscode-extensions-projectmanager.git).
 
 **Enjoy!**

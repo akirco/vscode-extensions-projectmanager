@@ -76,9 +76,12 @@
             "description": "The root folder of the projects"
           },
           "ProjectManager.category": {
-            "type": "string",
+            "type": "array",
             "description": "The categories of the projects",
-            "default": ""
+            "default": [],
+            "items": {
+              "type": "string"
+            }
           },
           "ProjectManager.scaffolds": {
             "type": "object",
@@ -109,12 +112,10 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "lint": "eslint src --ext ts"
   },
   "devDependencies": {
     "@types/glob": "8.1.0",
-    "get-folder-size": "5.0.0",
     "@types/mocha": "10.0.10",
     "@types/node": "24.1.0",
     "@types/vscode": "1.102.0",
@@ -123,10 +124,12 @@
     "@vscode/test-electron": "2.5.2",
     "eslint": "9.31.0",
     "fast-glob": "3.3.3",
+    "get-folder-size": "5.0.0",
     "glob": "11.0.3",
     "mocha": "11.7.1",
     "ts-loader": "9.5.2",
     "typescript": "5.8.3",
+    "typescript-eslint": "^8.38.0",
     "webpack": "5.100.2",
     "webpack-cli": "6.0.1"
   }

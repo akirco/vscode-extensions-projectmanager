@@ -9,7 +9,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // register command actions
   commands.map((item) => {
-    let disposable = vscode.commands.registerCommand(item.command, item.action);
+    const disposable = vscode.commands.registerCommand(item.command, item.action);
     context.subscriptions.push(disposable);
   });
 }

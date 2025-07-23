@@ -14,9 +14,6 @@ import { addProjectToRecentlyOpened } from "./stateManager";
 
 let configCache: ProjectConfig | null = null;
 
-const DEFAULT_CATEGORY =
-  "remote-repository,vue,react,node.js,python,rust,golang,demos";
-
 const defaultScaffolds: Scaffolds = {
   // Frontend
   createVite: "npx create-vite .",
@@ -55,7 +52,7 @@ function getConfiguration(): ProjectConfig {
   const config = vscode.workspace.getConfiguration("ProjectManager");
   configCache = {
     root: config.get<string>("root") || "",
-    category: config.get<string>("category") || DEFAULT_CATEGORY,
+    category: config.get<string[]>("category") || [],
     scaffolds: config.get<Scaffolds>("scaffolds") || defaultScaffolds,
     cleanerPatterns:
       config.get<string[]>("cleanerPatterns") || defaultCleanerPatterns,
@@ -77,7 +74,7 @@ export function getProjectRootDir(): string | undefined {
   return root;
 }
 
-export async function getProjectCategories(): Promise<string> {
+export async function getProjectCategories(): Promise<string[]> {
   const rootDir = getProjectRootDir();
   if (rootDir) {
     const categories = await getSubDirs(rootDir);
@@ -87,7 +84,7 @@ export async function getProjectCategories(): Promise<string> {
       if (index > -1) {
         categories.splice(index, 1);
       }
-      return categories.join(",");
+      return categories;
     }
   }
   return getConfiguration().category;
@@ -107,7 +104,7 @@ export async function getSubDirs(
     try {
       const entries = await vscode.workspace.fs.readDirectory(uri);
       return entries
-        .filter(([_, type]) => type === vscode.FileType.Directory)
+        .filter(([, type]) => type === vscode.FileType.Directory)
         .map(([name]) => name);
     } catch (error) {
       if (i === retries - 1) {
@@ -185,7 +182,7 @@ export async function openProject(projectPath: string): Promise<void> {
         result === "New Window"
       );
     }
-  } catch (error) {
+  } catch {
     showErrorMessage(`Failed to open project: ${projectPath}`);
   }
 }
@@ -255,7 +252,7 @@ export async function executeCommandInTerminal(command: string): Promise<void> {
       name: "Project Manager Terminal",
       shellPath: process.platform === "win32" ? "powershell.exe" : "bash",
       shellArgs: process.platform === "win32" ? ["-NoLogo"] : ["-l"],
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       env: { TERM: "xterm-256color" },
       hideFromUser: false,
     });
@@ -410,8 +407,8 @@ export async function getDirectorySize(dirPath: string): Promise<number> {
   try {
     const size = await getFolderSize.loose(dirPath);
     return size;
-  } catch (error) {
-    console.error(`Failed to get size for ${dirPath}:`, error);
+  } catch (e) {
+    console.error(`Failed to get size for ${dirPath}:`, e);
     return 0;
   }
 }
@@ -423,7 +420,7 @@ export async function deleteWithConfirmation(dir: string): Promise<void> {
       recursive: true,
       useTrash: true,
     });
-  } catch (error) {
+  } catch {
     // 如果移动到回收站失败，询问用户是否直接删除
     const confirmed = await showTrashDeleteConfirm(dir);
 

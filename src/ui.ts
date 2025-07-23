@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import * as path from "path";
 import * as vscode from "vscode";
 import { validateProjectName } from "./libs/projectManager";

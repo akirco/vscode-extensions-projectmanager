@@ -2,12 +2,12 @@ import * as vscode from "vscode";
 
 export interface Command {
   command: string;
-  action: (...args: any[]) => any;
+  action: (...args: unknown[]) => unknown;
 }
 
 export interface ProjectConfig {
   root: string;
-  category: string;
+  category: string[];
   scaffolds: Scaffolds;
   cleanerPatterns: string[];
 }

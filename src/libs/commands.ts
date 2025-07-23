@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/naming-convention */
+ 
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -69,8 +69,7 @@ const commands: Command[] = [
           return;
         }
 
-        const category = await getProjectCategories();
-        const categories = category.split(",").filter(Boolean);
+        const categories = await getProjectCategories();
         const selectedCategory = await showCategoryQuickPick(categories);
 
         if (selectedCategory) {
@@ -235,8 +234,7 @@ const commands: Command[] = [
             .pop()
             ?.replace(/\.git$/, "") || "";
 
-        const category = await getProjectCategories();
-        const categories = category.split(",").filter(Boolean);
+        const categories = await getProjectCategories();
 
         const selectedCategory = await showCategoryQuickPick(categories);
 
@@ -244,7 +242,7 @@ const commands: Command[] = [
           return;
         }
 
-        let projectName = await showProjectNameInput(
+        const projectName = await showProjectNameInput(
           rootDir,
           selectedCategory,
           defaultName

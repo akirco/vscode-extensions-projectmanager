@@ -29,11 +29,11 @@ RootFolder
 ```json
 {
   "window.dialogStyle": "custom", //Recommend settings
-  "ProjectManager.root": "D:\\Projects",// linux /home/username/Projects
-  "ProjectManager.category": "Vue,React,Node,Python,Rust,Go,PHP,Java,Lua,RemoteRepository,Temp"
+  "ProjectManager.root": "D:\\Projects", // linux /home/username/Projects
+  "ProjectManager.category": "Vue,React,Node,Python,Rust,Go",
+  "ProjectManager.cleanerPatterns": ["**/node_modules", "**/target", "**/.venv"]
 }
 ```
-
 
 ## Release Notes
 
@@ -60,11 +60,19 @@ Initial release;
 - linux supported
 
 ### 0.1.5
- - change create project logic
- - change excute command logic
- - add clone repository command
- - add open folder as a workspace
- - add remove dependencies command, only support `node_modules,rust target dir` , current is not support config
+
+- change create project logic
+- change excute command logic
+- add clone repository command
+- add open folder as a workspace
+- add remove dependencies command, only support `node_modules,rust target dir` , current is not support config
+
+### 0.1.6
+
+- refactor struct
+- add config of removed
+- add currently opened project lists
+- update dependencies
 
 ---
 

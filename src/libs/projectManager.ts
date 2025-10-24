@@ -421,24 +421,28 @@ export async function deleteWithConfirmation(dir: string): Promise<void> {
     });
   } catch (error) {
     //? 软链接问题吧
+    const err = error as { message: string; name: string };
+
     if (
-      error &&
-      ((error as string).includes("EntryNotFound") ||
-        (error as string).includes("noneexistent"))
+      err.message.includes("EntryNotFound") ||
+      err.message.includes("noneexistent")
     ) {
       return;
     }
 
-    // 如果移动到回收站失败，询问用户是否直接删除
-    const confirmed = await showTrashDeleteConfirm(dir);
+    if (err.name.includes("FileSystemError")) {
+      // windows 回收站限制
+      // 如果移动到回收站失败，询问用户是否直接删除
+      const confirmed = await showTrashDeleteConfirm(dir);
 
-    if (confirmed) {
-      await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
-        recursive: true,
-        useTrash: false,
-      });
-    } else {
-      throw new Error(`Cancelled deletion of ${dir}`);
+      if (confirmed) {
+        await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
+          recursive: true,
+          useTrash: false,
+        });
+      } else {
+        throw new Error(`Cancelled deletion of ${dir}`);
+      }
     }
   }
 }

@@ -318,9 +318,9 @@ const commands: Command[] = [
 
               const hasDeps = await hasAnyDependencies(project);
               // 没依赖跳过
-              if (!hasDeps) {
-                break;
-              }
+              // if (!hasDeps) {
+              //   break;
+              // }
 
               const totalSize = await getDirectorySize(project);
 

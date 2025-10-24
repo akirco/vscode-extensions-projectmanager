@@ -37,10 +37,14 @@ const excuteActiveEvent = (context: vscode.ExtensionContext) => {
     context.subscriptions.push(
       watcher,
       watcher.onDidCreate(() => {
-        vscode.commands.executeCommand("workbench.files.action.refreshFilesExplorer");
+        vscode.commands.executeCommand(
+          "workbench.files.action.refreshFilesExplorer"
+        );
       }),
       watcher.onDidDelete(() => {
-        vscode.commands.executeCommand("workbench.files.action.refreshFilesExplorer");
+        vscode.commands.executeCommand(
+          "workbench.files.action.refreshFilesExplorer"
+        );
       })
     );
   }

@@ -1,10 +1,10 @@
- 
 import * as path from "path";
 import * as vscode from "vscode";
 
 import {
   createWorkspace,
   deleteProject,
+  deleteWithConfirmation,
   executeCommandInTerminal,
   findDependencyDirs,
   getAvailableList,
@@ -20,7 +20,6 @@ import {
   openProject,
   withErrorHandling,
   withProgress,
-  deleteWithConfirmation,
 } from "../libs/projectManager";
 import { getRecentlyOpenedProjects } from "../libs/stateManager";
 import { Command, QuickPickItem } from "../types";
@@ -48,7 +47,7 @@ const MESSAGES = {
 } as const;
 
 const formatSize = (bytes: number): string => {
-  const units = ['B', 'KB', 'MB', 'GB'];
+  const units = ["B", "KB", "MB", "GB"];
   let size = bytes;
   let unitIndex = 0;
   while (size >= 1024 && unitIndex < units.length - 1) {
@@ -135,7 +134,9 @@ const commands: Command[] = [
             const lists = await getSubDirs(categoryFullPath);
 
             if (lists && lists.length > 0) {
-              const selectProject = await showProjectQuickPick(lists.map(l => ({ label: l })));
+              const selectProject = await showProjectQuickPick(
+                lists.map((l) => ({ label: l }))
+              );
               if (selectProject) {
                 openProject(path.join(categoryFullPath, selectProject.label));
               }
@@ -151,21 +152,29 @@ const commands: Command[] = [
     command: "pm.quickOpenProject",
     action: async () => {
       return withErrorHandling(async () => {
-        const recentProjects = getRecentlyOpenedProjects(5);
+        const recentProjects = getRecentlyOpenedProjects(10);
         const allProjects = await getAvailableProjects();
 
         const quickPickItems: vscode.QuickPickItem[] = [];
 
         if (recentProjects.length > 0) {
-          quickPickItems.push({ label: "Recent Projects", kind: vscode.QuickPickItemKind.Separator });
-          quickPickItems.push(...recentProjects.map(p => ({ label: p })));
+          quickPickItems.push({
+            label: "Recent Projects",
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+          quickPickItems.push(...recentProjects.map((p) => ({ label: p })));
         }
 
-        const otherProjects = allProjects.filter(p => !recentProjects.includes(p));
+        const otherProjects = allProjects.filter(
+          (p) => !recentProjects.includes(p)
+        );
 
         if (otherProjects.length > 0) {
-          quickPickItems.push({ label: "All Projects", kind: vscode.QuickPickItemKind.Separator });
-          quickPickItems.push(...otherProjects.map(p => ({ label: p })));
+          quickPickItems.push({
+            label: "All Projects",
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+          quickPickItems.push(...otherProjects.map((p) => ({ label: p })));
         }
 
         if (quickPickItems.length === 0) {
@@ -302,10 +311,17 @@ const commands: Command[] = [
             for (let i = 0; i < projects.length; i++) {
               const project = projects[i];
               progress.report({
-                message: `Checking ${path.basename(project)} (${i + 1}/${total})`,
+                message: `Checking ${path.basename(project)} (${
+                  i + 1
+                }/${total})`,
               });
 
               const hasDeps = await hasAnyDependencies(project);
+              // 没依赖跳过
+              if (!hasDeps) {
+                break;
+              }
+
               const totalSize = await getDirectorySize(project);
 
               results.push({
@@ -320,7 +336,10 @@ const commands: Command[] = [
             return results;
           }
         );
-
+        if (!projectsWithDeps.length) {
+          showInformationMessage("No dependencies found.");
+          return;
+        }
         const selectedProjects = await showDepsCleanQuickPick(projectsWithDeps);
 
         if (!selectedProjects?.length) {
@@ -335,7 +354,9 @@ const commands: Command[] = [
           for (const project of selectedProjects) {
             current++;
             progress.report({
-              message: `Analyzing ${path.basename(project)} (${current}/${total})`,
+              message: `Analyzing ${path.basename(
+                project
+              )} (${current}/${total})`,
             });
 
             const dependencyDirs = await findDependencyDirs(project);
@@ -345,7 +366,10 @@ const commands: Command[] = [
                 await deleteWithConfirmation(dir);
                 deletedCount++;
               } catch (error) {
-                if (error instanceof Error && error.message.includes("Cancelled")) {
+                if (
+                  error instanceof Error &&
+                  error.message.includes("Cancelled")
+                ) {
                   console.log(error.message);
                   continue;
                 }

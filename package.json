@@ -2,7 +2,7 @@
   "name": "pm",
   "displayName": "pm",
   "description": "A simple way to manage local project files.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "akirco",
   "engines": {
     "vscode": "^1.102.0"
@@ -115,8 +115,7 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/glob": "8.1.0",
-    "@types/mocha": "10.0.10",
+    "@akirco/dir_size": "^1.0.1",
     "@types/node": "24.1.0",
     "@types/vscode": "1.102.0",
     "@typescript-eslint/eslint-plugin": "8.38.0",
@@ -124,9 +123,6 @@
     "@vscode/test-electron": "2.5.2",
     "eslint": "9.31.0",
     "fast-glob": "3.3.3",
-    "get-folder-size": "5.0.0",
-    "glob": "11.0.3",
-    "mocha": "11.7.1",
     "ts-loader": "9.5.2",
     "typescript": "5.8.3",
     "typescript-eslint": "^8.38.0",

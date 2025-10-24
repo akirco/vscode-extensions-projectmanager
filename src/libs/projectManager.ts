@@ -1,6 +1,6 @@
+import { getFolderSize } from "@akirco/dir_size";
 import * as glob from "fast-glob";
 import * as fs from "fs";
-import getFolderSize from "get-folder-size";
 import * as path from "path";
 import * as vscode from "vscode";
 import { ProjectConfig, Scaffolds } from "../types";
@@ -362,7 +362,6 @@ export async function withErrorHandling<T>(
   }
 }
 
-// 通用进度提示
 export async function withProgress<T>(
   title: string,
   action: (
@@ -405,8 +404,8 @@ export async function hasAnyDependencies(
 
 export async function getDirectorySize(dirPath: string): Promise<number> {
   try {
-    const size = await getFolderSize.loose(dirPath);
-    return size;
+    const size = await getFolderSize(dirPath);
+    return Number(size);
   } catch (e) {
     console.error(`Failed to get size for ${dirPath}:`, e);
     return 0;
@@ -420,7 +419,16 @@ export async function deleteWithConfirmation(dir: string): Promise<void> {
       recursive: true,
       useTrash: true,
     });
-  } catch {
+  } catch (error) {
+    //? 软链接问题吧
+    if (
+      error &&
+      ((error as string).includes("EntryNotFound") ||
+        (error as string).includes("noneexistent"))
+    ) {
+      return;
+    }
+
     // 如果移动到回收站失败，询问用户是否直接删除
     const confirmed = await showTrashDeleteConfirm(dir);
 
@@ -432,6 +440,28 @@ export async function deleteWithConfirmation(dir: string): Promise<void> {
     } else {
       throw new Error(`Cancelled deletion of ${dir}`);
     }
+  }
+}
+
+// 获取当前vscode的profiles
+export async function getCurrentProfile() {
+  // 通过命令获取当前 profile
+  try {
+    // 尝试通过配置获取当前 profile 信息
+    const config = vscode.workspace.getConfiguration();
+    const profileName = config.get("profile.name");
+    const profileDescription = config.get("profile.description");
+
+    showErrorMessage(profileName as string);
+
+    return {
+      name: profileName,
+      description: profileDescription,
+      // 其他相关信息可以通过配置获取
+    };
+  } catch (error) {
+    console.error("Error getting current profile info:", error);
+    return null;
   }
 }
 

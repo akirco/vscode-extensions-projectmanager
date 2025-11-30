@@ -417,7 +417,7 @@ export async function deleteWithConfirmation(dir: string): Promise<void> {
     // 首先尝试移动到回收站
     await vscode.workspace.fs.delete(vscode.Uri.file(dir), {
       recursive: true,
-      useTrash: true,
+      useTrash: false,
     });
   } catch (error) {
     //? 软链接问题吧

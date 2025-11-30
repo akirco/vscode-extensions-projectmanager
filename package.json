@@ -2,7 +2,7 @@
   "name": "pm",
   "displayName": "pm",
   "description": "A simple way to manage local project files.",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "publisher": "akirco",
   "engines": {
     "vscode": "^1.102.0"
